@@ -1,0 +1,64 @@
+- name: Install kubectl
+  snap:
+    name: kubectl
+    classic: yes
+
+- name: Create OpenStack cloud.conf
+  copy:
+    dest: /root/cloud.conf
+    mode: '0600'
+    content: |
+      [Global]
+      auth-url = {{ os_auth_url }}
+      application-credential-id = {{ os_app_cred_id }}
+      application-credential-secret = {{ os_app_cred_secret }}
+      region = {{ os_region }}
+      interface = internal
+
+      [LoadBalancer]
+      use-octavia = true
+      floating-network-id = {{ os_floating_network_id }}
+
+- name: Wait for Kubernetes API
+  command: kubectl get nodes
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  retries: 30
+  delay: 10
+  register: api_check
+  until: api_check.rc == 0
+
+- name: Create cloud-config secret
+  shell: |
+    kubectl -n kube-system create secret generic cloud-config \
+      --from-file=cloud.conf=/root/cloud.conf \
+      --dry-run=client -o yaml | kubectl apply -f -
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Install OpenStack CCM RBAC
+  shell: |
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/cloud-controller-manager-roles.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Install OpenStack CCM DaemonSet
+  shell: |
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Patch CCM nodeSelector for RKE2
+  shell: |
+    kubectl -n kube-system patch ds openstack-cloud-controller-manager \
+      --type='json' \
+      -p='[
+        {
+          "op": "replace",
+          "path": "/spec/template/spec/nodeSelector/node-role.kubernetes.io~1control-plane",
+          "value": "true"
+        }
+      ]'
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml

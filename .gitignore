@@ -1,0 +1,63 @@
+# =====================
+# Terraform
+# =====================
+**/.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+crash.*.log
+.override.tf
+.override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform plan files
+*.tfplan
+
+# =====================
+# Ansible
+# =====================
+*.retry
+ansible/*.retry
+
+# Sensitive inventory / vars (optional – adjust if you want them tracked)
+ansible/inventory.ini
+ansible/group_vars/*secret*.yml
+ansible/group_vars/*vault*.yml
+
+# =====================
+# Python
+# =====================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+ENV/
+
+# =====================
+# Logs & temp files
+# =====================
+*.log
+*.tmp
+*.swp
+*.swo
+
+# =====================
+# OS / Editor
+# =====================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.bak
+*~
+
+# =====================
+# Cloud-init artifacts
+# =====================
+cloud-init.log
+cloud-init-output.log

@@ -1,0 +1,13 @@
+- name: Wait for node-token to exist
+  wait_for:
+    path: /var/lib/rancher/rke2/server/node-token
+    timeout: 300
+
+- name: Read node-token
+  slurp:
+    src: /var/lib/rancher/rke2/server/node-token
+  register: node_token_raw
+
+- name: Set cluster_node_token fact
+  set_fact:
+    rke2_cluster_node_token: "{{ node_token_raw.content | b64decode | trim }}"

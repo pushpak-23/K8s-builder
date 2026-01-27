@@ -1,0 +1,87 @@
+#cloud-config
+#cloud-config
+hostname: ${hostname}
+
+users:
+  - default
+
+  - name: ${username}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+chpasswd:
+  list: |
+    ${username}:${password}
+  expire: false
+
+ssh_pwauth: true
+disable_root: false
+
+package_update: true
+package_upgrade: false
+packages:
+  - curl
+  - xfsprogs
+  - ca-certificates
+
+runcmd:
+  # -------------------------------
+  # Disable swap (Kubernetes req)
+  # -------------------------------
+  - swapoff -a
+  - sed -i '/ swap / s/^/#/' /etc/fstab
+
+  # -------------------------------
+  # Kernel modules
+  # -------------------------------
+  - modprobe overlay
+  - modprobe br_netfilter
+  - echo "overlay" > /etc/modules-load.d/rke2.conf
+  - echo "br_netfilter" >> /etc/modules-load.d/rke2.conf
+
+  # -------------------------------
+  # Sysctl for Kubernetes
+  # -------------------------------
+  - |
+    cat <<EOF >/etc/sysctl.d/99-rke2.conf
+    net.bridge.bridge-nf-call-iptables=1
+    net.ipv4.ip_forward=1
+    EOF
+  - sysctl --system
+
+  # -------------------------------
+  # FORMAT & MOUNT DATA VOLUME
+  # THIS IS THE MOST IMPORTANT PART
+  # -------------------------------
+  - |
+    if ! blkid /dev/vdb; then
+      mkfs.xfs -f /dev/vdb
+    fi
+
+  - mkdir -p /var/lib/rancher
+  - mount /dev/vdb /var/lib/rancher
+  - echo "/dev/vdb /var/lib/rancher xfs defaults 0 0" >> /etc/fstab
+
+  # -------------------------------
+  # kubelet must also live on volume
+  # -------------------------------
+  - mkdir -p /var/lib/rancher/kubelet
+  - mkdir -p /var/lib/kubelet
+  - mount --bind /var/lib/rancher/kubelet /var/lib/kubelet
+  - echo "/var/lib/rancher/kubelet /var/lib/kubelet none bind 0 0" >> /etc/fstab
+
+  # -------------------------------
+  # Prevent RKE2 auto-start before Ansible
+  # -------------------------------
+  - systemctl daemon-reexec
+  - systemctl disable rke2-server || true
+  - systemctl disable rke2-agent || true
+
+final_message: |
+  Cloud-init complete.
+  Volume mounted on /var/lib/rancher.
+  Node ready for Ansible + RKE2.

@@ -1,0 +1,19 @@
+# ---------------- RKE2 ----------------
+rke2_version: "v1.35.0+rke2r1"
+rke2_token: "SUPER-SECRET-RKE2-TOKEN"
+rke2_server_endpoint: "https://192.168.180.54:9345"
+cluster_fqdn: "rancher.api.rke.cloud"
+
+# ---------------- OpenStack ----------------
+os_auth_url: "https://vip.public.cloud:5000/v3"
+os_region: "RegionOne"
+os_interface: "internal"
+
+os_app_cred_id: "7c1d87309f654583bdab148f4f681dc0"
+os_app_cred_secret: "BLuNVi-3YSDXypc1YXr7jymmt7HwqP5vvMsa5hiwt2OhVbaGT7DM0w_spQovAJxmscnfHKRVRBEI8-xFTmfDSw"
+
+external_network_id: "765373d8-6982-40f4-9d58-b9fbc95f8d29"
+
+# ---------------- Storage ----------------
+default_volume_type: "rbd-production"
+rke2_data_dir: /var/lib/rancher/rke2

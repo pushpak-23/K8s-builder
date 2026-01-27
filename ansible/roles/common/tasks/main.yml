@@ -1,0 +1,53 @@
+- name: Disable swap
+  shell: |
+    swapoff -a
+    sed -i '/ swap / s/^/#/' /etc/fstab
+
+- name: Load kernel modules
+  copy:
+    dest: /etc/modules-load.d/rke2.conf
+    content: |
+      overlay
+      br_netfilter
+
+- name: Sysctl settings
+  copy:
+    dest: /etc/sysctl.d/rke2.conf
+    content: |
+      net.bridge.bridge-nf-call-iptables=1
+      net.ipv4.ip_forward=1
+
+- name: Apply sysctl
+  command: sysctl --system
+
+# ---------- STORAGE (THIS FIXES ROOT DISK ISSUE) ----------
+
+- name: Format volume if needed
+  shell: |
+    blkid /dev/vdb || mkfs.xfs -f /dev/vdb
+
+- name: Mount volume to /var/lib/rancher
+  mount:
+    path: /var/lib/rancher
+    src: /dev/vdb
+    fstype: xfs
+    opts: defaults
+    state: mounted
+
+- name: Prepare kubelet directory
+  file:
+    path: /var/lib/rancher/kubelet
+    state: directory
+
+- name: Bind mount kubelet
+  mount:
+    path: /var/lib/kubelet
+    src: /var/lib/rancher/kubelet
+    fstype: none
+    opts: bind
+    state: mounted
+
+- name: Verify mounts
+  shell: |
+    mountpoint -q /var/lib/rancher
+    mountpoint -q /var/lib/kubelet

@@ -1,0 +1,39 @@
+- name: Install RKE2 server
+  shell: curl -sfL https://get.rke2.io | INSTALL_RKE2_VERSION={{ rke2_version }} sh -
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Create RKE2 config directory
+  file:
+    path: /etc/rancher/rke2
+    state: directory
+    mode: '0755'
+
+- name: Configure joining master
+  copy:
+    dest: /etc/rancher/rke2/config.yaml
+    mode: '0600'
+    content: |
+      token: {{ hostvars[groups['masters'][0]].rke2_cluster_node_token }}
+      server: https://{{ hostvars[groups['masters'][0]].private_ip }}:9345
+      data-dir: {{ rke2_data_dir }}
+
+      node-name: {{ inventory_hostname }}
+      node-ip: {{ private_ip }}
+      advertise-address: {{ private_ip }}
+
+      cloud-provider-name: external
+      disable-cloud-controller: true
+
+      kube-apiserver-arg:
+        - cloud-provider=external
+      kube-controller-manager-arg:
+        - cloud-provider=external
+      kubelet-arg:
+        - cloud-provider=external
+
+- name: Start rke2-server
+  systemd:
+    name: rke2-server
+    enabled: true
+    state: started
