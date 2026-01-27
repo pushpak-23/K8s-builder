@@ -1,33 +1,54 @@
-- name: Install kubectl
-  snap:
-    name: kubectl
-    classic: yes
+# -------------------------
+# Ensure kubectl exists
+# -------------------------
+- name: Install kubectl via snap
+  command: snap install kubectl --classic
+  args:
+    creates: /snap/bin/kubectl
 
-- name: Create OpenStack cloud.conf
+# -------------------------
+# Wait for kubeconfig
+# -------------------------
+- name: Wait for kubeconfig
+  wait_for:
+    path: /etc/rancher/rke2/rke2.yaml
+    timeout: 300
+
+# -------------------------
+# Wait for Kubernetes API
+# -------------------------
+- name: Wait for Kubernetes API
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl get nodes
+  retries: 30
+  delay: 10
+  register: api
+  until: api.rc == 0
+
+# -------------------------
+# Create cloud.conf
+# -------------------------
+- name: Create cloud.conf
   copy:
     dest: /root/cloud.conf
     mode: '0600'
     content: |
       [Global]
       auth-url = {{ os_auth_url }}
+      region = {{ os_region }}
+      interface = {{ os_interface | default("internal") }}
+
       application-credential-id = {{ os_app_cred_id }}
       application-credential-secret = {{ os_app_cred_secret }}
-      region = {{ os_region }}
-      interface = internal
 
       [LoadBalancer]
       use-octavia = true
-      floating-network-id = {{ os_floating_network_id }}
+      floating-network-id = {{ external_network_id }}
 
-- name: Wait for Kubernetes API
-  command: kubectl get nodes
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-  retries: 30
-  delay: 10
-  register: api_check
-  until: api_check.rc == 0
-
+# -------------------------
+# Create cloud-config secret
+# -------------------------
 - name: Create cloud-config secret
   shell: |
     kubectl -n kube-system create secret generic cloud-config \
@@ -36,29 +57,32 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Install OpenStack CCM RBAC
+# -------------------------
+# Deploy CCM RBAC
+# -------------------------
+- name: Deploy CCM RBAC
   shell: |
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/cloud-controller-manager-roles.yaml
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Install OpenStack CCM DaemonSet
+# -------------------------
+# Deploy CCM DaemonSet
+# -------------------------
+- name: Deploy CCM DaemonSet
   shell: |
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Patch CCM nodeSelector for RKE2
+# -------------------------
+# Fix nodeSelector for RKE2
+# -------------------------
+- name: Fix nodeSelector for RKE2
   shell: |
     kubectl -n kube-system patch ds openstack-cloud-controller-manager \
-      --type='json' \
-      -p='[
-        {
-          "op": "replace",
-          "path": "/spec/template/spec/nodeSelector/node-role.kubernetes.io~1control-plane",
-          "value": "true"
-        }
-      ]'
+      --type=json \
+      -p='[{"op":"replace","path":"/spec/template/spec/nodeSelector/node-role.kubernetes.io~1control-plane","value":"true"}]'
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml

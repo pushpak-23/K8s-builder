@@ -3,55 +3,34 @@
   roles:
     - common
 
-# ---------------------------------------------------
-# Bootstrap master
-# ---------------------------------------------------
 - hosts: masters[0]
   become: true
   roles:
     - rke2-bootstrap
 
-# ---------------------------------------------------
-# Wait + extract node-token (CRITICAL)
-# ---------------------------------------------------
 - hosts: masters[0]
   become: true
   tasks:
-    - name: Wait for RKE2 supervisor port (9345)
-      wait_for:
+    - wait_for:
         host: "{{ private_ip }}"
         port: 9345
-        delay: 10
         timeout: 900
-
-    - name: Read RKE2 node-token
-      include_role:
+    - include_role:
         name: rke2-bootstrap
         tasks_from: token.yml
 
-# ---------------------------------------------------
-# Join remaining masters (serial = etcd safety)
-# ---------------------------------------------------
 - hosts: masters[1:]
   become: true
   serial: 1
   roles:
     - rke2-server
 
-# ---------------------------------------------------
-# Join workers
-# ---------------------------------------------------
 - hosts: workers
   become: true
   roles:
     - rke2-agent
 
-# ---------------------------------------------------
-# Cloud integrations (AFTER cluster is ready)
-# ---------------------------------------------------
 - hosts: masters[0]
   become: true
   roles:
     - openstack-ccm
-    - openstack-csi
-    - post-cluster

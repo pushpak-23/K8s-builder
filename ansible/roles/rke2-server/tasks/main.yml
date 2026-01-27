@@ -3,16 +3,14 @@
   args:
     creates: /usr/local/bin/rke2
 
-- name: Create RKE2 config directory
+- name: Create config directory
   file:
     path: /etc/rancher/rke2
     state: directory
-    mode: '0755'
 
-- name: Configure joining master
+- name: Join master
   copy:
     dest: /etc/rancher/rke2/config.yaml
-    mode: '0600'
     content: |
       token: {{ hostvars[groups['masters'][0]].rke2_cluster_node_token }}
       server: https://{{ hostvars[groups['masters'][0]].private_ip }}:9345
@@ -22,15 +20,8 @@
       node-ip: {{ private_ip }}
       advertise-address: {{ private_ip }}
 
-      cloud-provider-name: external
       disable-cloud-controller: true
-
-      kube-apiserver-arg:
-        - cloud-provider=external
-      kube-controller-manager-arg:
-        - cloud-provider=external
-      kubelet-arg:
-        - cloud-provider=external
+      cloud-provider-name: external
 
 - name: Start rke2-server
   systemd:

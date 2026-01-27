@@ -7,7 +7,6 @@
   file:
     path: /etc/rancher/rke2
     state: directory
-    mode: '0755'
 
 - name: Configure bootstrap master
   copy:
@@ -24,21 +23,12 @@
 
       tls-san:
         - {{ private_ip }}
-        {% if cluster_fqdn is defined %}
         - {{ cluster_fqdn }}
-        {% endif %}
 
-      cloud-provider-name: external
       disable-cloud-controller: true
+      cloud-provider-name: external
 
-      kube-apiserver-arg:
-        - cloud-provider=external
-      kube-controller-manager-arg:
-        - cloud-provider=external
-      kubelet-arg:
-        - cloud-provider=external
-
-- name: Start rke2-server (bootstrap)
+- name: Start rke2-server
   systemd:
     name: rke2-server
     enabled: true

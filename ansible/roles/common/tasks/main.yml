@@ -20,18 +20,15 @@
 - name: Apply sysctl
   command: sysctl --system
 
-# ---------- STORAGE (THIS FIXES ROOT DISK ISSUE) ----------
-
+# ---------- STORAGE ----------
 - name: Format volume if needed
-  shell: |
-    blkid /dev/vdb || mkfs.xfs -f /dev/vdb
+  shell: blkid /dev/vdb || mkfs.xfs -f /dev/vdb
 
-- name: Mount volume to /var/lib/rancher
+- name: Mount /var/lib/rancher
   mount:
     path: /var/lib/rancher
     src: /dev/vdb
     fstype: xfs
-    opts: defaults
     state: mounted
 
 - name: Prepare kubelet directory
@@ -46,8 +43,3 @@
     fstype: none
     opts: bind
     state: mounted
-
-- name: Verify mounts
-  shell: |
-    mountpoint -q /var/lib/rancher
-    mountpoint -q /var/lib/kubelet
