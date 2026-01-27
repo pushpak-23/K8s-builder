@@ -1,63 +1,67 @@
-# =====================
-# Terraform
-# =====================
+# =====================================================
+# Terraform (NEVER commit these)
+# =====================================================
 **/.terraform/
 *.tfstate
 *.tfstate.*
-terraform.tfvars
+*.tfvars
+*.tfplan
 crash.log
 crash.*.log
+
+# Override files
 .override.tf
 .override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Terraform plan files
-*.tfplan
-
-# =====================
+# =====================================================
 # Ansible
-# =====================
+# =====================================================
 *.retry
 ansible/*.retry
 
-# Sensitive inventory / vars (optional – adjust if you want them tracked)
+# Ansible secrets / sensitive files
 ansible/inventory.ini
-ansible/group_vars/*secret*.yml
 ansible/group_vars/*vault*.yml
+ansible/group_vars/*secret*.yml
 
-# =====================
+# =====================================================
 # Python
-# =====================
+# =====================================================
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 .env
-.venv
+.venv/
 venv/
 ENV/
 
-# =====================
+# =====================================================
 # Logs & temp files
-# =====================
+# =====================================================
 *.log
 *.tmp
 *.swp
 *.swo
-
-# =====================
-# OS / Editor
-# =====================
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.bak
 *~
 
-# =====================
-# Cloud-init artifacts
-# =====================
+# =====================================================
+# Editor / IDE
+# =====================================================
+.vscode/
+.idea/
+*.code-workspace
+
+# =====================================================
+# OS files
+# =====================================================
+.DS_Store
+Thumbs.db
+
+# =====================================================
+# Cloud / bootstrap artifacts
+# =====================================================
 cloud-init.log
 cloud-init-output.log
