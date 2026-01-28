@@ -1,4 +1,4 @@
-```markdown
+
 # 🚀 K8s-Builder: Automated Kubernetes Cluster Deployment on OpenStack
 
 ![GitHub Stars](https://img.shields.io/github/stars/yourusername/k8s-builder?style=flat-square)
@@ -232,14 +232,13 @@ This project is licensed under the **MIT License** – see [LICENSE](LICENSE) fo
 ---
 
 ## 👥 **Authors & Contributors**
-👤 **Maintainer**: [Your Name](https://github.com/yourusername)
-🤝 **Contributors**: [List of contributors](https://github.com/yourusername/k8s-builder/graphs/contributors)
+👤 **Maintainer**: [Your Name](https://github.com/pushpak-23)
+🤝 **Contributors**: [List of contributors](https://github.com/pushpak-23/k8s-builder/graphs/contributors)
 
 ---
 
 ## 🐛 **Issues & Support**
-- **Report bugs** or request features via [GitHub Issues](https://github.com/yourusername/k8s-builder/issues).
-- **Need help?** Join our [Discord](https://discord.gg/k8s-builder) or ask on [Stack Overflow](https://stackoverflow.com/questions/tagged/k8s-builder).
+- **Report bugs** or request features via [GitHub Issues](https://github.com/pushpak-23/k8s-builder/issues).
 
 ### **FAQ**
 | Question                          | Answer                                                                 |
