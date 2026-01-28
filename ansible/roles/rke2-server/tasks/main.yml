@@ -3,14 +3,16 @@
   args:
     creates: /usr/local/bin/rke2
 
-- name: Create config directory
+- name: Create RKE2 config directory
   file:
     path: /etc/rancher/rke2
     state: directory
+    mode: '0755'
 
-- name: Join master
+- name: Join master to cluster
   copy:
     dest: /etc/rancher/rke2/config.yaml
+    mode: '0600'
     content: |
       token: {{ hostvars[groups['masters'][0]].rke2_cluster_node_token }}
       server: https://{{ hostvars[groups['masters'][0]].private_ip }}:9345
@@ -19,6 +21,21 @@
       node-name: {{ inventory_hostname }}
       node-ip: {{ private_ip }}
       advertise-address: {{ private_ip }}
+
+      {% set tls_sans = [
+        private_ip,
+        '127.0.0.1',
+        'localhost',
+        rke2_lb_host
+      ] %}
+      {% if cluster_fqdn is defined %}
+      {% set _ = tls_sans.append(cluster_fqdn) %}
+      {% endif %}
+
+      tls-san:
+      {% for san in tls_sans %}
+        - {{ san }}
+      {% endfor %}
 
       disable-cloud-controller: true
       cloud-provider-name: external

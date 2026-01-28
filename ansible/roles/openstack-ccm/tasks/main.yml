@@ -26,6 +26,31 @@
   register: api
   until: api.rc == 0
 
+- name: Copy OpenStack root CA certificate
+  copy:
+    src: root.crt
+    dest: /usr/local/share/ca-certificates/root.crt
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Update CA trust store
+  command: update-ca-certificates
+
+- name: Ensure Kubernetes PKI directory exists
+  file:
+    path: /etc/kubernetes/pki
+    state: directory
+    mode: '0755'
+
+- name: Copy OpenStack root CA certificate to Kubernetes PKI
+  copy:
+    src: root.crt
+    dest: /etc/kubernetes/pki/root.crt
+    owner: root
+    group: root
+    mode: '0644'
+
 # -------------------------
 # Create cloud.conf
 # -------------------------
@@ -41,7 +66,7 @@
 
       application-credential-id = {{ os_app_cred_id }}
       application-credential-secret = {{ os_app_cred_secret }}
-
+      ca-file = /etc/kubernetes/pki/root.crt
       [LoadBalancer]
       use-octavia = true
       floating-network-id = {{ external_network_id }}
@@ -57,6 +82,13 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
+- name: Create OpenStack CA secret for CSI
+  shell: |
+    kubectl -n kube-system create secret generic openstack-ca \
+      --from-file=root.crt=/etc/kubernetes/pki/root.crt \
+      --dry-run=client -o yaml | kubectl apply -f -
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 # -------------------------
 # Deploy CCM RBAC
 # -------------------------

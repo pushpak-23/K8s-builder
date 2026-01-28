@@ -1,6 +1,48 @@
-- name: Deploy OpenStack Cinder CSI
+- name: Install Cinder CSI driver CRD
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/csi-cinder-driver.yaml
+
+- name: Install Cinder CSI RBAC
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/master/manifests/cinder-csi-plugin/cinder-csi-controllerplugin.yaml
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/master/manifests/cinder-csi-plugin/cinder-csi-nodeplugin.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-controllerplugin-rbac.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-nodeplugin-rbac.yaml
+
+- name: Deploy Cinder CSI controller and node plugin
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-controllerplugin.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-nodeplugin.yaml
+
+- name: Patch tolerations for CSI controller
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system patch deployment csi-cinder-controllerplugin --type=json -p='[
+      {"op":"add","path":"/spec/template/spec/tolerations","value":[{"operator":"Exists"}]}
+    ]'
+  ignore_errors: true
+
+- name: Patch tolerations for CSI node plugin
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system patch daemonset csi-cinder-nodeplugin --type=json -p='[
+      {"op":"add","path":"/spec/template/spec/tolerations","value":[{"operator":"Exists"}]}
+    ]'
+  ignore_errors: true
+- name: Restart Cinder CSI components
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system rollout restart deployment csi-cinder-controllerplugin
+    kubectl -n kube-system rollout restart daemonset csi-cinder-nodeplugin
+- name: Wait for Cinder CSI node plugin
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system rollout status daemonset csi-cinder-nodeplugin --timeout=300s
+
+- name: Wait for Cinder CSI controller
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system rollout status deployment csi-cinder-controllerplugin --timeout=300s

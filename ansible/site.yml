@@ -1,36 +1,126 @@
+# ---------------------------------------------------
+# Base OS + storage prep
+# ---------------------------------------------------
 - hosts: all
   become: true
   roles:
     - common
 
+# ---------------------------------------------------
+# Bootstrap first master
+# ---------------------------------------------------
 - hosts: masters[0]
   become: true
   roles:
     - rke2-bootstrap
 
+# ---------------------------------------------------
+# Wait + extract node-token
+# ---------------------------------------------------
 - hosts: masters[0]
   become: true
   tasks:
-    - wait_for:
+    - name: Wait for RKE2 supervisor
+      wait_for:
         host: "{{ private_ip }}"
         port: 9345
         timeout: 900
-    - include_role:
+
+    - name: Read RKE2 node-token
+      include_role:
         name: rke2-bootstrap
         tasks_from: token.yml
 
+# ---------------------------------------------------
+# Join remaining masters (etcd safety)
+# ---------------------------------------------------
 - hosts: masters[1:]
   become: true
   serial: 1
   roles:
     - rke2-server
 
+# ---------------------------------------------------
+# Join workers
+# ---------------------------------------------------
 - hosts: workers
   become: true
   roles:
     - rke2-agent
 
+# ---------------------------------------------------
+# Cloud integrations (AFTER cluster ready)
+# ---------------------------------------------------
 - hosts: masters[0]
   become: true
   roles:
     - openstack-ccm
+    - openstack-csi
+    - post-cluster
+
+# ---------------------------------------------------
+# Generate external kubeconfig (Terraform-aware)
+# ---------------------------------------------------
+- hosts: localhost
+  become: false
+  run_once: true
+  vars:
+    artifacts_dir: "{{ playbook_dir }}/artifacts"
+    terraform_dir: "{{ playbook_dir }}/.."   # Terraform root
+
+  tasks:
+    - name: Ensure artifacts directory exists
+      file:
+        path: "{{ artifacts_dir }}"
+        state: directory
+
+    - name: Read Terraform outputs (JSON)
+      command: terraform output -json
+      args:
+        chdir: "{{ terraform_dir }}"
+      register: tf_outputs
+      changed_when: false
+
+    - name: Parse Terraform outputs
+      set_fact:
+        tf_data: "{{ tf_outputs.stdout | from_json }}"
+
+    - name: Validate API endpoint exists
+      fail:
+        msg: >
+          Terraform output "k8s_api_endpoint" not found.
+          Ensure terraform apply has been run in {{ terraform_dir }}.
+      when: tf_data.k8s_api_endpoint is not defined
+
+    - name: Set API endpoint
+      set_fact:
+        api_endpoint: "{{ tf_data.k8s_api_endpoint.value | trim }}"
+
+    - name: Load raw kubeconfig
+      set_fact:
+        kubeconfig_raw: "{{ lookup('file', artifacts_dir + '/kubeconfig.raw') | from_yaml }}"
+
+    - name: Rewrite kubeconfig server endpoint
+      set_fact:
+        kubeconfig_fixed: >-
+          {{
+            kubeconfig_raw
+            | combine({
+                'clusters': [
+                  kubeconfig_raw.clusters[0]
+                  | combine({
+                      'cluster':
+                        kubeconfig_raw.clusters[0].cluster
+                        | combine({'server': api_endpoint})
+                    })
+                ]
+              }, recursive=True)
+          }}
+
+    - name: Write external kubeconfig
+      copy:
+        dest: "{{ artifacts_dir }}/kubeconfig"
+        mode: '0600'
+        content: "{{ kubeconfig_fixed | to_nice_yaml }}"
+
+

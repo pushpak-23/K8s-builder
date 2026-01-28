@@ -1,7 +1,26 @@
+# -------------------------
+# Ensure kubectl ready
+# -------------------------
+- name: Wait for kubeconfig
+  wait_for:
+    path: /etc/rancher/rke2/rke2.yaml
+    timeout: 300
+
+- name: Verify cluster ready
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl get nodes
+  retries: 30
+  delay: 10
+  register: api
+  until: api.rc == 0
+
+# -------------------------
+# Create default StorageClass
+# -------------------------
 - name: Create default Cinder StorageClass
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-
     cat <<EOF | kubectl apply -f -
     apiVersion: storage.k8s.io/v1
     kind: StorageClass
@@ -17,3 +36,13 @@
     reclaimPolicy: Delete
     allowVolumeExpansion: true
     EOF
+
+# -------------------------
+# Fetch admin kubeconfig
+# -------------------------
+- name: Fetch admin kubeconfig
+  fetch:
+    src: /etc/rancher/rke2/rke2.yaml
+    dest: "{{ playbook_dir }}/artifacts/kubeconfig.raw"
+    flat: yes
+
