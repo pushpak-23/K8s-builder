@@ -1,4 +1,3 @@
-
 # 🚀 K8s-Builder: Automated Kubernetes Cluster Deployment on OpenStack
 
 ![GitHub Stars](https://img.shields.io/github/stars/yourusername/k8s-builder?style=flat-square)
@@ -25,16 +24,17 @@ K8s-Builder is a **Terraform + Ansible** automation framework that provisions **
 
 ## 🛠️ **Tech Stack**
 
-| Category          | Tools/Technologies                          |
-|-------------------|--------------------------------------------|
+| Category           | Tools/Technologies                           |
+| ------------------ | -------------------------------------------- |
 | **Infrastructure** | Terraform, OpenStack (Nova, Cinder, Neutron) |
-| **Configuration**  | HCL (Terraform), YAML (Ansible)            |
-| **Kubernetes**    | RKE2 (Rancher Kubernetes Engine)           |
-| **Cloud Provider** | OpenStack Cloud Controller Manager (CCM)   |
-| **Storage**       | Cinder CSI Driver                          |
-| **Scripting**     | Python (for inventory generation)           |
+| **Configuration**  | HCL (Terraform), YAML (Ansible)              |
+| **Kubernetes**     | RKE2 (Rancher Kubernetes Engine)             |
+| **Cloud Provider** | OpenStack Cloud Controller Manager (CCM)     |
+| **Storage**        | Cinder CSI Driver                            |
+| **Scripting**      | Python (for inventory generation)            |
 
 **System Requirements:**
+
 - OpenStack environment with Nova, Cinder, and Neutron
 - Terraform ≥ 1.0
 - Python 3.8+
@@ -52,6 +52,7 @@ K8s-Builder is a **Terraform + Ansible** automation framework that provisions **
    - External network ID (`external_network_id`)
 
 2. **Terraform & Ansible** – Install:
+
    ```bash
    # Install Terraform (Linux/macOS)
    sudo apt-get install -y gnupg software-properties-common
@@ -73,17 +74,22 @@ K8s-Builder is a **Terraform + Ansible** automation framework that provisions **
 ### **Quick Start**
 
 #### **1. Configure Terraform & Ansible**
+
 Replace placeholders in:
+
 - `ansible/group_vars/all.yml` (OpenStack & RKE2 settings)
 - `cloud-init.yaml` (user credentials, SSH keys)
 
 #### **2. Generate Ansible Inventory**
+
 Run the Python script to create `ansible/inventory.ini`:
+
 ```bash
-python3 script.py
+
 ```
 
-#### **3. Deploy the Cluster**
+#### **2. Deploy the VM's**
+
 ```bash
 # Initialize Terraform
 terraform init
@@ -95,12 +101,27 @@ terraform apply -auto-approve
 # Wait for VMs to boot (~5-10 mins)
 sleep 300
 
+```
+
+#### **3. Generate Ansible Inventory**
+
+Run the Python script to create `ansible/inventory.ini`:
+
+```bash
+python3 script.py
+```
+
+#### **4. Deploy the Cluster**
+
+```bash
 # Run Ansible playbook
 ansible-playbook -i ansible/inventory.ini ansible/site.yml
 ```
 
-#### **4. Access Your Cluster**
+#### **5. Access Your Cluster**
+
 After deployment (~15-20 mins), your cluster will be ready:
+
 ```bash
 # Get kubeconfig
 kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml get nodes
@@ -109,7 +130,9 @@ kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml get nodes
 ---
 
 ### **Alternative: Docker Setup (For Local Testing)**
+
 If you want to test without OpenStack:
+
 ```bash
 # Build a Docker image with dependencies
 docker build -t k8s-builder .
@@ -121,7 +144,9 @@ docker run -it --rm -v $(pwd):/workspace k8s-builder bash
 ## 🎯 **Usage Examples**
 
 ### **Basic Cluster Deployment**
+
 1. **Terraform Provisioning** – Deploys 3 masters + 3 workers:
+
    ```hcl
    # Example Terraform snippet (simplified)
    resource "openstack_compute_instance_v2" "k8s_nodes" {
@@ -144,13 +169,17 @@ docker run -it --rm -v $(pwd):/workspace k8s-builder bash
    ```
 
 ### **Customizing Storage**
+
 Modify `ansible/group_vars/all.yml` to change:
+
 ```yaml
-default_volume_type: "rbd-production"  # or "ceph-rgw"
+default_volume_type: "rbd-production" # or "ceph-rgw"
 ```
 
 ### **Scaling the Cluster**
+
 Add more nodes by updating `script.py` and re-running:
+
 ```bash
 python3 script.py  # Regenerates inventory.ini
 ansible-playbook -i ansible/inventory.ini ansible/site.yml
@@ -159,6 +188,7 @@ ansible-playbook -i ansible/inventory.ini ansible/site.yml
 ---
 
 ## 📁 **Project Structure**
+
 ```
 📦 k8s-builder/
 ├── .gitignore                # Ignore sensitive files & artifacts
@@ -179,18 +209,20 @@ ansible-playbook -i ansible/inventory.ini ansible/site.yml
 ## 🔧 **Configuration**
 
 ### **Environment Variables**
-| Variable                     | Purpose                                  | Example Value                     |
-|------------------------------|------------------------------------------|-----------------------------------|
-| `OS_AUTH_URL`                | OpenStack auth URL                       | `https://vip.public.cloud:5000/v3` |
-| `OS_REGION`                  | OpenStack region                        | `RegionOne`                       |
-| `OS_INTERFACE`               | Network interface                        | `internal`                        |
-| `os_app_cred_id`             | OpenStack app credential ID              | `7c1d87309f654583bdab148f4f681dc0`|
-| `os_app_cred_secret`         | OpenStack app credential secret          | `BLuNVi-3YSDXypc1YXr7jymmt7HwqP5vvMsa5hiwt2OhVbaGT7DM0w_spQovAJxmscnfHKRVRBEI8-xFTmfDSw` |
-| `external_network_id`        | OpenStack external network ID            | `765373d8-6982-40f4-9d58-b9fbc95f8d29` |
-| `rke2_version`               | RKE2 version                            | `v1.35.0+rke2r1`                  |
-| `rke2_token`                 | RKE2 cluster token (auto-generated)     | `SUPER-SECRET-RKE2-TOKEN`         |
+
+| Variable              | Purpose                             | Example Value                                                                            |
+| --------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| `OS_AUTH_URL`         | OpenStack auth URL                  | `https://vip.public.cloud:5000/v3`                                                       |
+| `OS_REGION`           | OpenStack region                    | `RegionOne`                                                                              |
+| `OS_INTERFACE`        | Network interface                   | `internal`                                                                               |
+| `os_app_cred_id`      | OpenStack app credential ID         | `7c1d87309f654583bdab148f4f681dc0`                                                       |
+| `os_app_cred_secret`  | OpenStack app credential secret     | `BLuNVi-3YSDXypc1YXr7jymmt7HwqP5vvMsa5hiwt2OhVbaGT7DM0w_spQovAJxmscnfHKRVRBEI8-xFTmfDSw` |
+| `external_network_id` | OpenStack external network ID       | `765373d8-6982-40f4-9d58-b9fbc95f8d29`                                                   |
+| `rke2_version`        | RKE2 version                        | `v1.35.0+rke2r1`                                                                         |
+| `rke2_token`          | RKE2 cluster token (auto-generated) | `SUPER-SECRET-RKE2-TOKEN`                                                                |
 
 ### **Customization Options**
+
 1. **Node Types** – Modify `script.py` to add more node types (e.g., GPU workers).
 2. **Storage Backend** – Change `default_volume_type` in `ansible/group_vars/all.yml`.
 3. **Networking** – Adjust `cloud-init.yaml` for custom networking policies.
@@ -202,6 +234,7 @@ ansible-playbook -i ansible/inventory.ini ansible/site.yml
 We welcome contributions! Here’s how you can help:
 
 ### **Development Setup**
+
 1. Fork the repository.
 2. Clone locally:
    ```bash
@@ -212,11 +245,13 @@ We welcome contributions! Here’s how you can help:
 4. Run tests (if any) or start contributing!
 
 ### **Code Style Guidelines**
+
 - **Terraform**: Follow [HashiCorp’s style guide](https://developer.hashicorp.com/terraform/styleguide).
 - **Ansible**: Use YAML formatting and modular roles.
 - **Python**: PEP 8 compliant.
 
 ### **Pull Request Process**
+
 1. Create a feature branch:
    ```bash
    git checkout -b feature/your-feature
@@ -227,44 +262,51 @@ We welcome contributions! Here’s how you can help:
 ---
 
 ## 📝 **License**
+
 This project is licensed under the **MIT License** – see [LICENSE](LICENSE) for details.
 
 ---
 
 ## 👥 **Authors & Contributors**
+
 👤 **Maintainer**: [Your Name](https://github.com/pushpak-23)
 🤝 **Contributors**: [List of contributors](https://github.com/pushpak-23/k8s-builder/graphs/contributors)
 
 ---
 
 ## 🐛 **Issues & Support**
+
 - **Report bugs** or request features via [GitHub Issues](https://github.com/pushpak-23/k8s-builder/issues).
 
 ### **FAQ**
-| Question                          | Answer                                                                 |
-|-----------------------------------|------------------------------------------------------------------------|
-| **How long does deployment take?** | ~15-20 minutes (depends on OpenStack performance).                     |
-| **Can I use this for production?** | Yes! This is designed for production-grade clusters.                  |
-| **Does it support multi-cloud?**   | Currently OpenStack-only; PRs welcome for other providers!             |
+
+| Question                           | Answer                                                     |
+| ---------------------------------- | ---------------------------------------------------------- |
+| **How long does deployment take?** | ~15-20 minutes (depends on OpenStack performance).         |
+| **Can I use this for production?** | Yes! This is designed for production-grade clusters.       |
+| **Does it support multi-cloud?**   | Currently OpenStack-only; PRs welcome for other providers! |
 
 ---
 
 ## 🗺️ **Roadmap**
-| Feature               | Status       | Description                                                                 |
-|-----------------------|--------------|-----------------------------------------------------------------------------|
-| **Multi-Cloud Support** | 🚧 In Progress | Add support for AWS, GCP, and Azure.                                        |
-| **Helm Charts**       | 🎨 Planned    | Pre-configured Helm values for common apps (e.g., Prometheus, NGINX).      |
-| **Terraform Modules** | 🎨 Planned    | Convert to reusable Terraform modules.                                      |
-| **Kubernetes Dashboard** | 🎨 Planned  | Auto-deploy Kubernetes Dashboard with RBAC.                                  |
-| **Monitoring Stack**  | 🎨 Planned    | Integrate Prometheus + Grafana for observability.                           |
+
+| Feature                  | Status         | Description                                                           |
+| ------------------------ | -------------- | --------------------------------------------------------------------- |
+| **Multi-Cloud Support**  | 🚧 In Progress | Add support for AWS, GCP, and Azure.                                  |
+| **Helm Charts**          | 🎨 Planned     | Pre-configured Helm values for common apps (e.g., Prometheus, NGINX). |
+| **Terraform Modules**    | 🎨 Planned     | Convert to reusable Terraform modules.                                |
+| **Kubernetes Dashboard** | 🎨 Planned     | Auto-deploy Kubernetes Dashboard with RBAC.                           |
+| **Monitoring Stack**     | 🎨 Planned     | Integrate Prometheus + Grafana for observability.                     |
 
 ---
 
 ## 🚀 **Get Started Today!**
+
 [![Star this repo](https://img.shields.io/badge/Star-this-repo-blue?style=for-the-badge&logo=github)](https://github.com/yourusername/k8s-builder/stargazers)
 [![Fork this repo](https://img.shields.io/badge/Fork-this-repo-blue?style=for-the-badge&logo=github)](https://github.com/yourusername/k8s-builder/fork)
 
 **Deploy your Kubernetes cluster in minutes!** 🚀
+
 ```bash
 git clone https://github.com/yourusername/k8s-builder.git
 cd k8s-builder
@@ -272,5 +314,9 @@ cd k8s-builder
 ```
 
 ---
+
 **Happy Deploying!** 🎉
+
+```
+
 ```

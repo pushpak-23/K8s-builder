@@ -1,28 +1,47 @@
+---
+# Install Cinder CSI driver CRD
 - name: Install Cinder CSI driver CRD
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/csi-cinder-driver.yaml
+  register: csi_crd
+  until: csi_crd.rc == 0
+  retries: 10
+  delay: 5
 
+# Install RBAC
 - name: Install Cinder CSI RBAC
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-controllerplugin-rbac.yaml
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-nodeplugin-rbac.yaml
+  register: csi_rbac
+  until: csi_rbac.rc == 0
+  retries: 10
+  delay: 5
 
+# Deploy controller & node plugin
 - name: Deploy Cinder CSI controller and node plugin
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-controllerplugin.yaml
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/cinder-csi-plugin/cinder-csi-nodeplugin.yaml
+  register: csi_deploy
+  until: csi_deploy.rc == 0
+  retries: 10
+  delay: 5
 
+# Add broad tolerations (useful in many RKE2 environments)
 - name: Patch tolerations for CSI controller
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl -n kube-system patch deployment csi-cinder-controllerplugin --type=json -p='[
       {"op":"add","path":"/spec/template/spec/tolerations","value":[{"operator":"Exists"}]}
-    ]'
+    ]' || true
+  register: csi_tol_ctrl
+  until: csi_tol_ctrl.rc == 0
+  retries: 20
+  delay: 5
   ignore_errors: true
 
 - name: Patch tolerations for CSI node plugin
@@ -30,19 +49,90 @@
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl -n kube-system patch daemonset csi-cinder-nodeplugin --type=json -p='[
       {"op":"add","path":"/spec/template/spec/tolerations","value":[{"operator":"Exists"}]}
-    ]'
+    ]' || true
+  register: csi_tol_node
+  until: csi_tol_node.rc == 0
+  retries: 20
+  delay: 5
   ignore_errors: true
+
+# -------------------------------------------------------------
+# Only patch needed: Mount Kubernetes PKI for root CA visibility
+# (Path fixes are handled by the symlink in common tasks)
+# -------------------------------------------------------------
+- name: Patch Cinder Node Plugin - Mount /etc/kubernetes/pki
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system patch daemonset csi-cinder-nodeplugin --type='strategic' -p='
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cinder-csi-plugin
+            volumeMounts:
+            - mountPath: /etc/kubernetes/pki
+              name: k8s-certs
+              readOnly: true
+          volumes:
+          - hostPath:
+              path: /etc/kubernetes/pki
+              type: Directory
+            name: k8s-certs'
+  register: csi_node_patch
+  until: csi_node_patch.rc == 0
+  retries: 20
+  delay: 5
+
+- name: Patch Cinder Controller Plugin - Mount /etc/kubernetes/pki
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system patch deployment csi-cinder-controllerplugin --type='strategic' -p='
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cinder-csi-plugin
+            volumeMounts:
+            - mountPath: /etc/kubernetes/pki
+              name: k8s-certs
+              readOnly: true
+          volumes:
+          - hostPath:
+              path: /etc/kubernetes/pki
+              type: Directory
+            name: k8s-certs'
+  register: csi_ctrl_patch
+  until: csi_ctrl_patch.rc == 0
+  retries: 20
+  delay: 5
+
+# Restart to apply patches
 - name: Restart Cinder CSI components
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-    kubectl -n kube-system rollout restart deployment csi-cinder-controllerplugin
-    kubectl -n kube-system rollout restart daemonset csi-cinder-nodeplugin
-- name: Wait for Cinder CSI node plugin
-  shell: |
-    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-    kubectl -n kube-system rollout status daemonset csi-cinder-nodeplugin --timeout=300s
+    kubectl -n kube-system rollout restart deployment csi-cinder-controllerplugin || true
+    kubectl -n kube-system rollout restart daemonset csi-cinder-nodeplugin || true
+  register: csi_restart
+  until: csi_restart.rc == 0
+  retries: 10
+  delay: 10
+  ignore_errors: true
 
-- name: Wait for Cinder CSI controller
+# Wait for rollout - increased timeout for safety
+- name: Wait for Cinder CSI node plugin to rollout
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-    kubectl -n kube-system rollout status deployment csi-cinder-controllerplugin --timeout=300s
+    kubectl -n kube-system rollout status daemonset csi-cinder-nodeplugin --timeout=600s
+  register: csi_node_wait
+  until: csi_node_wait.rc == 0
+  retries: 10
+  delay: 30
+
+- name: Wait for Cinder CSI controller to rollout
+  shell: |
+    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+    kubectl -n kube-system rollout status deployment csi-cinder-controllerplugin --timeout=600s
+  register: csi_ctrl_wait
+  until: csi_ctrl_wait.rc == 0
+  retries: 10
+  delay: 30

@@ -2,7 +2,7 @@
 rke2_version: "v1.35.0+rke2r1"
 rke2_token: "SUPER-SECRET-RKE2-TOKEN"
 cluster_fqdn: "rancher.api.rke.cloud"
-rke2_lb_host: "192.168.180.21"
+rke2_lb_host: "192.168.180.58"
 
 # ---------------- OpenStack ----------------
 os_auth_url: "https://vip.public.cloud:5000/v3"

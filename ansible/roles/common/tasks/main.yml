@@ -43,3 +43,32 @@
     fstype: none
     opts: bind
     state: mounted
+
+# - name: Create symlink from /var/lib/kubelet to RKE2 data
+#   file:
+#     src: /var/lib/rancher/rke2/agent/kubelet
+#     dest: /var/lib/kubelet
+#     state: link
+#     force: yes
+
+- name: Ensure plugins_registry directory exists
+  # This fixes the "hostPath type check failed" error
+  file:
+    path: /var/lib/rancher/rke2/agent/kubelet/plugins_registry
+    state: directory
+    mode: '0755'
+    
+# ---------- CERTIFICATES (NEW) ----------
+- name: Ensure Kubernetes PKI directory exists
+  file:
+    path: /etc/kubernetes/pki
+    state: directory
+    mode: '0755'
+
+- name: Copy OpenStack root CA to Kubernetes PKI
+  copy:
+    src: root.crt
+    dest: /etc/kubernetes/pki/root.crt
+    owner: root
+    group: root
+    mode: '0644'

@@ -5,6 +5,10 @@
   command: snap install kubectl --classic
   args:
     creates: /snap/bin/kubectl
+  register: install_kubectl
+  until: install_kubectl.rc == 0
+  retries: 5
+  delay: 10
 
 # -------------------------
 # Wait for kubeconfig
@@ -21,22 +25,14 @@
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl get nodes
-  retries: 30
-  delay: 10
   register: api
   until: api.rc == 0
+  retries: 30
+  delay: 10
 
-- name: Copy OpenStack root CA certificate
-  copy:
-    src: root.crt
-    dest: /usr/local/share/ca-certificates/root.crt
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Update CA trust store
-  command: update-ca-certificates
-
+# -------------------------
+# Certificates
+# -------------------------
 - name: Ensure Kubernetes PKI directory exists
   file:
     path: /etc/kubernetes/pki
@@ -63,7 +59,6 @@
       auth-url = {{ os_auth_url }}
       region = {{ os_region }}
       interface = {{ os_interface | default("internal") }}
-
       application-credential-id = {{ os_app_cred_id }}
       application-credential-secret = {{ os_app_cred_secret }}
       ca-file = /etc/kubernetes/pki/root.crt
@@ -81,16 +76,13 @@
       --dry-run=client -o yaml | kubectl apply -f -
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: ccm_secret
+  until: ccm_secret.rc == 0
+  retries: 10
+  delay: 5
 
-- name: Create OpenStack CA secret for CSI
-  shell: |
-    kubectl -n kube-system create secret generic openstack-ca \
-      --from-file=root.crt=/etc/kubernetes/pki/root.crt \
-      --dry-run=client -o yaml | kubectl apply -f -
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 # -------------------------
-# Deploy CCM RBAC
+# Deploy CCM
 # -------------------------
 - name: Deploy CCM RBAC
   shell: |
@@ -98,23 +90,29 @@
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: ccm_rbac
+  until: ccm_rbac.rc == 0
+  retries: 10
+  delay: 5
 
-# -------------------------
-# Deploy CCM DaemonSet
-# -------------------------
 - name: Deploy CCM DaemonSet
   shell: |
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/release-1.29/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: ccm_ds
+  until: ccm_ds.rc == 0
+  retries: 10
+  delay: 5
 
-# -------------------------
-# Fix nodeSelector for RKE2
-# -------------------------
-- name: Fix nodeSelector for RKE2
+- name: Fix nodeSelector for RKE2 (Retry until patched)
   shell: |
     kubectl -n kube-system patch ds openstack-cloud-controller-manager \
       --type=json \
       -p='[{"op":"replace","path":"/spec/template/spec/nodeSelector/node-role.kubernetes.io~1control-plane","value":"true"}]'
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: ccm_patch
+  until: ccm_patch.rc == 0
+  retries: 20  # Higher retries as DS might take a moment to appear in API
+  delay: 5
