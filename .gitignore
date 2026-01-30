@@ -65,3 +65,6 @@ Thumbs.db
 # =====================================================
 cloud-init.log
 cloud-init-output.log
+root.crt
+kubeconfig
+kubeconfig.raw

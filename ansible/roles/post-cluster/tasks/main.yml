@@ -2,6 +2,7 @@
 # -------------------------
 # 1. Verification
 # -------------------------
+
 - name: Wait for kubeconfig to exist
   wait_for:
     path: /etc/rancher/rke2/rke2.yaml
@@ -17,7 +18,7 @@
   until: api_check.rc == 0
 
 
-- name: Wait for CoreDNS rollout (configured via bootstrap)
+- name: Wait for CoreDNS rollout
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl -n kube-system rollout status deployment rke2-coredns-rke2-coredns --timeout=180s
@@ -26,7 +27,8 @@
   delay: 15
   until: coredns_rollout.rc == 0
 
-- name: Wait for Cilium rollout (configured via bootstrap)
+
+- name: Wait for Cilium rollout
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl -n kube-system rollout status daemonset cilium --timeout=300s
@@ -38,9 +40,10 @@
 
 
 # -------------------------
-# 3. CoreDNS Patch (RKE2-safe)
+# 2. CoreDNS Patch (RKE2-safe)
 # -------------------------
-- name: Patch CoreDNS via HelmChartConfig (extraCorefile)
+
+- name: Patch CoreDNS via HelmChartConfig
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 
@@ -64,7 +67,8 @@
   register: coredns_patch
   changed_when: "'created' in coredns_patch.stdout or 'configured' in coredns_patch.stdout"
 
-- name: Restart CoreDNS to apply patched config
+
+- name: Restart CoreDNS
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl -n kube-system rollout restart deployment rke2-coredns-rke2-coredns
@@ -72,51 +76,9 @@
   retries: 5
   delay: 10
   until: coredns_restart.rc == 0
-  changed_when: "'restarted' in coredns_restart.stdout"
 
-# -------------------------
-# 4. Hubble UI (Ingress)
-# -------------------------
 
-- name: Ensure Hubble UI service exists (ClusterIP)
-  shell: |
-    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-    kubectl -n kube-system get svc hubble-ui
-  register: hubble_svc_check
-  failed_when: hubble_svc_check.rc != 0
-
-- name: Create Ingress for Hubble UI
-  shell: |
-    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
-    cat <<EOF | kubectl apply -f -
-    apiVersion: networking.k8s.io/v1
-    kind: Ingress
-    metadata:
-      name: hubble-ui
-      namespace: kube-system
-      annotations:
-        kubernetes.io/ingress.class: nginx
-        nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-        nginx.ingress.kubernetes.io/websocket-services: "hubble-ui"
-    spec:
-      rules:
-      - host: hubble.k8s.local
-        http:
-          paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: hubble-ui
-                port:
-                  number: 80
-    EOF
-  register: hubble_ingress_create
-  changed_when: "'created' in hubble_ingress_create.stdout or 'configured' in hubble_ingress_create.stdout"
-
-- name: Restart csi-cinder-controllerplugin deployment
+- name: Restart csi-cinder-controllerplugin
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     kubectl -n kube-system rollout restart deployment csi-cinder-controllerplugin
@@ -124,15 +86,16 @@
   retries: 5
   delay: 10
   until: csi_cinder_restart.rc == 0
-  changed_when: "'restarted' in csi_cinder_restart.stdout or 'successfully' in csi_cinder_restart.stdout"
+
 
 # -------------------------
-# 5. Storage (Cinder)
+# 6. Storage (Cinder)
 # -------------------------
-# Ensure Cinder CSI is installed before this runs!
+
 - name: Create default Cinder StorageClass
   shell: |
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+
     cat <<EOF | kubectl apply -f -
     apiVersion: storage.k8s.io/v1
     kind: StorageClass
@@ -151,7 +114,12 @@
   register: sc_create
   changed_when: "'created' in sc_create.stdout or 'configured' in sc_create.stdout"
 
-- name: Fetch admin kubeconfig to control host
+
+# -------------------------
+# 7. Fetch kubeconfig
+# -------------------------
+
+- name: Fetch admin kubeconfig
   fetch:
     src: /etc/rancher/rke2/rke2.yaml
     dest: "{{ playbook_dir }}/artifacts/kubeconfig.raw"

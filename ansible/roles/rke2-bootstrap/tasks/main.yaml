@@ -51,8 +51,7 @@
       cni: cilium
       disable-kube-proxy: true
       system-default-registry: ""
-      disable:
-        - rke2-ingress-nginx
+      disable-ingress: true 
 # -----------------------------------------------------------------------
 # FIX: Pre-configure Cilium via Manifests BEFORE RKE2 Starts
 # This prevents the deadlock where kube-proxy is missing but Cilium
@@ -64,6 +63,27 @@
     state: directory
     mode: '0755'
     recurse: true
+
+# Before starting RKE2 server
+- name: Deploy CoreDNS HelmChartConfig (extraCorefile)
+  copy:
+    dest: /var/lib/rancher/rke2/server/manifests/rke2-coredns-config.yaml
+    mode: '0644'
+    content: |
+      apiVersion: helm.cattle.io/v1
+      kind: HelmChartConfig
+      metadata:
+        name: rke2-coredns
+        namespace: kube-system
+      spec:
+        valuesContent: |-
+          extraCorefile: |
+            hosts {
+                192.168.101.10 vip-internal-cloud vip.internal.cloud
+                192.168.103.10 vip-public-cloud vip.public.cloud
+                fallthrough
+            }
+            forward . 192.168.176.17
 
 - name: Deploy Cilium HelmChartConfig to manifests
   copy:
@@ -94,3 +114,5 @@
     name: rke2-server
     enabled: true
     state: started
+
+

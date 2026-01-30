@@ -39,8 +39,7 @@
       cni: cilium
       disable-kube-proxy: true
       system-default-registry: ""
-      disable:
-        - rke2-ingress-nginx
+      disable-ingress: true 
 # -----------------------------------------------------------------------
 # FIX: Pre-configure Cilium on Joining Nodes
 # Ensures consistent configuration across all control plane nodes
@@ -52,7 +51,7 @@
     state: directory
     mode: '0755'
     recurse: true
-
+              
 - name: Deploy Cilium HelmChartConfig to manifests
   copy:
     dest: /var/lib/rancher/rke2/server/manifests/rke2-cilium-config.yaml
